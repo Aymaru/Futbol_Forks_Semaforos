@@ -35,27 +35,34 @@ bool contadorTiempo(int min){
 }
 
 int main(int argc, char * argv[]) {
-	
-	return contadorTiempo(5);
-
+	//SEgmento de Memoria Compatida
 	int running = 1;
 	void *shared_memory = (void *)0;
 	struct memoriaCompartida * shared_stuff;
 	int shmid; 
 	srand((unsigned int)getpid());
 
-	shmid = shmget((key_t)1234, sizeof(struct memoriaCompartida), 0666 | IPC_CREAT);
+	//shmid = shmget((key_t)1234, sizeof(struct memoriaCompartida), 0666 | IPC_CREAT);
+	shmid = 163841;
+	printf("Shmid : %d",shmid);
+	//ipcs -m Ver el status de los segmentos compartidos existenes
+	//ipcs -s Ver el status de los semaforos
+	//ipcs -q Ver el status de la cola de mensages 
 	if (shmid == -1) {
 		fprintf(stderr, "Error la Cancha y la bola no fué compartida\n");
-		//exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	shared_memory = shmat(shmid, (void *)0, 0);
 	if (shared_memory == (void *)-1) {
 		fprintf(stderr, "shmat failed\n");
-		//exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 	//printf("Memory attached at %X\n", (int)shared_memory);
+	//Segmento de semaforos
 
+	//Segmento de cola de mensajes
+
+	
 	int pid;
 	int jugadores = 0 ;
 	int listaDeJugadores[10];
@@ -70,7 +77,7 @@ int main(int argc, char * argv[]) {
 			fprintf(stderr,"Jugador no se ha creado, se cancela el partido...");
 			return 1;
 		}else if (pid == 0) {
-			printf("   %d 	%d     %d\n",jugadores,getpid(),getppid());
+			printf("   %d 	%d      %d\n",jugadores,getpid(),getppid());
 			listaDeJugadores[jugadores] = getppid();
 			exit (0);
 		}else{
