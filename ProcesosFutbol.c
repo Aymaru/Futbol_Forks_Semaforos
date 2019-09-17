@@ -182,6 +182,178 @@ int main(int argc, char * argv[]) {
 				player.idJ = jugadores;
 				partido->b.jug.idP =  jugadores;
 				printf("   %c      %d	 %d	   %d\n",player.equipo,player.idJ,player.idP,player.numPartido);
+				while(true)
+				{
+					if(partido->running == true)
+					{
+						//semaforoBola, semaforoCanchaA, semaforoCanchaB
+                      	//semaforo_wait();
+                      	//semaforo_post();
+						semaforo_wait(semaforoBola);
+						if(partido->b.jug.idP == player.idP)
+						{
+							if((char)partido->b.jug.equipo =='A')
+							{
+								semaforo_post(semaforoBola);
+								int i;
+								for(i=0;i<3;i++)
+								{
+									semaforo_wait(semaforoCanchaB);
+									if(partido->B.jug.idP == player.idP)
+									{
+										partido->B.jug.idJ = 0;
+										partido->B.jug.idP = 0;
+										partido->B.jug.equipo = 0;
+										semaforo_post(semaforoCanchaB);
+
+										semaforo_wait(semaforoCanchaA);
+										partido->A.anotaciones++; //anotación para el Equipo A
+										semaforo_post(semaforoCanchaA);						
+
+                                  		printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
+                                  		printf("Marcador: A(%d) - B(%d)\n",partido->A.anotaciones,partido->B.anotaciones);
+										break;
+									} 
+									else
+									{
+
+										if(partido->B.jug.idP == 0)//Si la cancha esta vacia
+										{
+											partido->B.jug.idJ = player.idJ;
+											partido->B.jug.idP = player.idP;
+											partido->B.jug.equipo = player.equipo;
+											semaforo_post(semaforoCanchaB);
+											printf("El jugador %d del equipo %c obtuvo la cancha B (Intento %d)\n",player.idJ,player.equipo,i);
+											break;
+										}
+										else 
+										{
+											semaforo_post(semaforoCanchaB);
+											printf("El jugador %d del equipo %c no obtuvo la cancha B. (Intento %d)\n",player.idJ,player.equipo,i);
+											sleep(1);
+										}
+									}
+								}
+								semaforo_wait(semaforoBola);
+								//libera la bola
+								partido->b.jug.idJ = 0;
+								partido->b.jug.idP = 0;
+								partido->b.jug.equipo = 0;
+								semaforo_post(semaforoBola);
+
+							} else 
+							{ //jugador de equipo b
+								semaforo_post(semaforoBola);
+								int i;
+								for(i=0;i<3;i++)
+								{
+									semaforo_wait(semaforoCanchaA);
+									if(partido->A.jug.idP == player.idP)
+									{
+										partido->A.jug.idJ = 0;
+										partido->A.jug.idP = 0;
+										partido->A.jug.equipo = 0;
+										semaforo_post(semaforoCanchaA);
+
+										semaforo_wait(semaforoCanchaB);
+										partido->B.anotaciones++; //anotación para el Equipo A
+										semaforo_post(semaforoCanchaB);						
+
+                                  		printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
+                                  		printf("Marcador: A(%d) - B(%d)\n",partido->A.anotaciones,partido->B.anotaciones);
+										break;
+									} 
+									else
+									{
+
+										if(partido->A.jug.idP == 0)//Si la cancha esta vacia
+										{
+											partido->A.jug.idJ = player.idJ;
+											partido->A.jug.idP = player.idP;
+											partido->A.jug.equipo = player.equipo;
+											semaforo_post(semaforoCanchaA);
+											printf("El jugador %d del equipo %c obtuvo la cancha A (Intento %d)\n",player.idJ,player.equipo,i);
+											break;
+										}
+										else 
+										{
+											semaforo_post(semaforoCanchaA);
+											printf("El jugador %d del equipo %c no obtuvo la cancha A. (Intento %d)\n",player.idJ,player.equipo,i);
+											sleep(1);
+										}
+									}
+								}
+								semaforo_wait(semaforoBola);
+								//libera la bola
+								partido->b.jug.idJ = 0;
+								partido->b.jug.idP = 0;
+								partido->b.jug.equipo = 0;
+								semaforo_post(semaforoBola);
+							}
+
+						} /*else if(player.idJ == 6)
+						{
+							semaforo_post(semaforoBola);
+							sleep(randomNumero(5,10));
+							
+							semaforo_wait(semaforoCanchaA);
+							if( partido->A.jug.idJ == 0 )
+							{
+								partido->A.jug.idJ = player.idJ;
+								partido->A.jug.idP = player.idP;
+								partido->A.jug.equipo = player.equipo;
+								semaforo_post(semaforoCanchaA);
+
+								sleep(3);
+
+								semaforo_wait(semaforoCanchaA);	
+								partido->A.jug.idJ = 0;
+								partido->A.jug.idP = 0;
+								partido->A.jug.equipo = 0;
+							}
+							semaforo_post(semaforoCanchaA);
+							
+						} else if(player.idJ == 12)
+
+						{	semaforo_post(semaforoBola);
+							sleep(randomNumero(5,10));
+
+							semaforo_wait(semaforoCanchaB);
+							if( partido->B.jug.idJ == 0 )
+							{
+								partido->B.jug.idJ = player.idJ;
+								partido->B.jug.idP = player.idP;
+								partido->B.jug.equipo = player.equipo;
+								semaforo_post(semaforoCanchaB);
+
+								sleep(3);
+
+								semaforo_wait(semaforoCanchaB);
+								partido->B.jug.idJ = 0;
+								partido->B.jug.idP = 0;
+								partido->B.jug.equipo = 0;
+							}
+							semaforo_post(semaforoCanchaB);
+							
+						}*/
+						else if(partido->b.jug.idP == 0)
+						{	
+							semaforo_post(semaforoBola);
+							//sleep(randomNumero(5,20));
+
+							//semaforo_wait(semaforoBola);
+                        	partido->b.jug.idP = player.idP; // Setea el jugador(proceso) a la bola
+                        	partido->b.jug.equipo = player.equipo; // Setea el jugador(numero) a la hola
+                        	partido->b.jug.idJ = player.idJ; // Setea el jugador(numero) a la bola	
+                        	semaforo_post(semaforoBola);
+							printf("EL jugador %d obtuvo la bola\n",player.idJ);
+							
+						}
+
+					}					
+
+				}
+				/*
                	while(true){
                 	if(partido->running == true){
 						sleep(randomNumero(2,3)); //Tiempo de Espera
@@ -230,7 +402,7 @@ int main(int argc, char * argv[]) {
 							//semaforo_post(semaforoBola);
                     	}							              		
                    	}
-           		}	
+           		}	*/
 			}
 		}
 		sleep(1);
