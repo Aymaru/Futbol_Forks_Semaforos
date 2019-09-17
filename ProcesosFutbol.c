@@ -1,17 +1,13 @@
-#include <stdio.h>          /* printf()                 */
-#include <stdlib.h>         /* exit(), malloc(), free() */
-#include <sys/types.h>      /* key_t, sem_t, pid_t      */
-#include <sys/shm.h>        /* shmat(), IPC_RMID        */
-#include <errno.h>          /* errno, ECHILD            */
-#include <semaphore.h>      /* sem_open(), sem_destroy(), sem_wait().. */
-#include <fcntl.h>          /* O_CREAT, O_EXEC          */
-#include <stdbool.h>
-#include <time.h>
-#include <sys/wait.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/sem.h>
-#include<string.h>
+#include <stdio.h>          /* printf()                 			   */
+#include <stdlib.h>         /* exit(),								   */
+#include <sys/types.h>      /* key_t, sem_t, pid_t      			   */
+#include <sys/shm.h>        /* shmget, shmat, shmctl     			   */
+#include <sys/sem.h>        /* semget, semop, semctl				   */
+#include <stdbool.h>		/* bool vars				               */
+#include <time.h>			/* recursos de tiempo sleep(s)             */
+#include <sys/wait.h>		/* wait(NULL)      						   */
+#include <unistd.h>			/* fork()								   */
+
 
 void mensajeError(char* errorInfo) {
     fprintf(stderr,"%s",errorInfo);
@@ -19,81 +15,45 @@ void mensajeError(char* errorInfo) {
 };
 
 struct Jugador{
-	char equipo;
+	char equipo; //caracter del Equipo
   	int idP; //numero del proceso
 	int idJ; //numero del jugador
-	int numPartido;
+	int numPartido; //numero del proceso Padre
 };
 
 struct Bola{
-  	int balon;
-  	struct Jugador jug;
+	int balon;			//Proceso que tiene la bola
+  	struct Jugador jug; //jugador del proceso que la tiene
 };
 
 struct Cancha{
-    int anotaciones;
-	char equipo;
-    struct Jugador jug;
+    int anotaciones; //cant goles al momento
+	char equipo;	 //caracter del Equipo
+    struct Jugador jug;	//jugador que posee la cancha
 };
 
-struct Partido{
-  struct Cancha A;
-  struct Cancha B;
-  struct Bola b;
-  bool running;
+struct Partido{ // Segmento Compartido Directo
+  struct Cancha A; // Contiene la Cancha A
+  struct Cancha B; // Contiene la Cancha B
+  struct Bola b;   // Bola del juego
+  bool running;	   // se esta jugando o no 
 };
-
-void acceder(struct Partido *partido, struct Jugador player){
-	if(partido->b.jug.idP == player.idP){
-		int aux;
-		if((char)partido->b.jug.equipo =='A'){
-			if(partido->B.jug.idP == player.idP){
-				partido->A.anotaciones++;
-				printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
-				printf("Marcador: A(%d) - B(%d)\n",partido->A.anotaciones,partido->B.anotaciones);
-			}else{
-				partido->B.jug.idP = player.idP;
-				aux = partido->B.jug.idJ;		
-				partido->B.jug.idJ =player.idJ;
-				printf("EL jugador %d le quito la Cancha A a %d\n",player.idJ,aux);
-			}
-		}else if((char)partido->b.jug.equipo =='B'){ //Equipo B
-			if(partido->A.jug.idP == player.idP){
-				partido->B.anotaciones++;
-				printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
-				printf("Marcador: A(%d) - B(%d)\n",partido->A.anotaciones,partido->B.anotaciones);
-			}else{
-				partido->A.jug.idP = player.idP;
-				aux = partido->A.jug.idJ;		
-				partido->A.jug.idJ =player.idJ;
-				printf("EL jugador %d le quito la Cancha B a %d\n",player.idJ,aux);
-			}
-		}
-	}else{
-		partido->b.jug.idP = player.idP;
-		partido->b.jug.equipo = player.equipo;
-		int viejo = partido->b.jug.idJ;
-		partido->b.jug.idJ = player.idJ;
-		printf("EL jugador %d perdió la bola y la obtuvo el jugador %d\n",viejo,player.idJ);
-	}
-}
 
 void inicializarPartido(struct Partido *partido){
-	partido->running = false;
-	partido->A.anotaciones = 0;
-	partido->A.equipo = 'A';
-	partido->B.anotaciones = 0;
-	partido->B.equipo = 'B';
-	partido->b.balon = 0;
-	partido->b.jug.idP = 0;
-	partido->b.jug.equipo = ' ';
+	partido->running = false; 	 // No ha comenzado el partido
+	partido->A.anotaciones = 0;	 // 0 anotaciones del equipo A
+	partido->A.equipo = 'A';	 // Settea el caracter 'A'
+	partido->B.anotaciones = 0;  // 0 anotaciones del equipo B
+	partido->B.equipo = 'B';	 // Settea el caracter 'B'
+	partido->b.jug.idP = 0;		 // Proceso del jugador en 0, nadie la tiene
+	partido->b.jug.equipo = ' '; // Equipo del jugador en '', nadie la tiene
+	partido->b.balon = 0;		 // Ningun proceso tiene la bola 	
 }
 
 int randomNumero(int min,int max){
-	srand(time(NULL));
-	int randomm = min + rand () / (RAND_MAX / (max-min+1)+1);
-	//printf("%d\n",randomm);
-	return randomm;
+	srand((unsigned int)getpid()); //settea el # proceso a la función para que funcione con fork
+	int randomm = min + rand () / (RAND_MAX / (max-min+1)+1); // # random
+	return randomm;	// retorna el entero
 }
 /*
 bool inicializarContadorTiempo(int min){
@@ -104,75 +64,91 @@ bool inicializarContadorTiempo(int min){
 }
 */
 
-void V(int semid) {
-    struct sembuf sops; //Signal
-    sops.sem_op = 1;
-    sops.sem_flg = 0;
-    if (semop(semid, &sops, 1) == -1) {
-        perror(NULL);
-        mensajeError("Error al hacer Signal");
-    }
+union semaforo {
+  	int val;
+  	struct semid_ds *buf;
+	unsigned short int *array;
+	struct seminfo *__buf;
+};
+
+int semaforo_allocation(key_t key, int sem_flags){
+ 	return semget (key, 1, sem_flags);
 }
 
-void P(int semid) {
-    struct sembuf sops;
-    sops.sem_op = -1; /* ... un wait (resto 1) */
-    sops.sem_flg = 0;
-    if (semop(semid, &sops, 1) == -1) {
-        perror(NULL);
-        mensajeError("Error al hacer el Wait");
-    }
+int semaforo_deallocate(int semid)
+{
+  union semaforo ignored_argument;
+  return semctl (semid, 1, IPC_RMID, ignored_argument);
 }
 
-void initSem(int semid, int valor) { //iniciar un semaforo
-    if (semctl(semid, 0, SETVAL, valor) < 0) {        
-    	perror(NULL);
-        mensajeError("Error iniciando semaforo");
-    }
+int semaforo_inicializacion(int semid){
+  	union semaforo argument;
+  	unsigned short values[1];
+  	values[0] = 1; //Inicializa con un 1
+  	argument.array = values;
+  	return semctl (semid, 0, SETALL, argument);
+}
+
+/*Block until the semaphore value is positive, then decrement it by one.  */
+int semaforo_wait (int semid){
+  	struct sembuf operations[1];
+  	/* Use the first (and only) semaphore.  */
+  	operations[0].sem_num = 0;
+  	/* Decrement by 1.  */
+  	operations[0].sem_op = -1;
+  	/* Permit undo'ing.  */
+  	operations[0].sem_flg = SEM_UNDO;
+  
+  	return semop (semid, operations, 1);
+}
+
+/* Retorna el valor inmediatamente  */
+int semaforo_post (int semid){
+  	struct sembuf operations[1];
+  	/* Use the first (and only) semaphore.  */
+  	operations[0].sem_num = 0;
+  	/* Increment by 1.  */
+  	operations[0].sem_op = 1;
+  	/* Permit undo'ing.  */
+  	operations[0].sem_flg = SEM_UNDO;
+  	return semop (semid, operations, 1);
 }
 
 
-int main(int argc, char * argv[]) {    
-	char buffer[BUFSIZ];
+int main(int argc, char * argv[]) { 
+	//Segmento Compartido   
 	int shmid;
 	void *shared_memory = (void *)0;
   	struct Partido *partido; 
-	srand((unsigned int)getpid()); 
+	srand((unsigned int)getpid());
     shmid = shmget((key_t)1947, sizeof(struct Partido), 0666 | IPC_CREAT);
     if (shmid == -1) {
           mensajeError("Error : semget\n");
           exit(EXIT_FAILURE);
     }
-  	
 	shared_memory = shmat(shmid, (void *)0, 0);
-  
     if (shared_memory == (void *)-1 ) {
 		mensajeError("Error : shmat\n");
 		exit(EXIT_FAILURE);
 	}
 	partido =(struct Partido*)shared_memory;
-	
+	inicializarPartido(partido);
 	int pid;
 	int jugadores = 0;
-	int semaforoColaPartido, semaforoMutex;
+	int semaforoBola, semaforoCanchaA, semaforoCanchaB;
   
   	//Creamos un semaforo y damos permisos para compartirlo
-    semaforoColaPartido=semget(IPC_PRIVATE,1,IPC_CREAT | 0700);
-    semaforoMutex=semget(IPC_PRIVATE,1,IPC_CREAT | 0700);
-
-    //Creamos un semaforo y damos permisos para compartirlo
-    if(semaforoColaPartido<0 && semaforoMutex<0) {
-        perror(NULL);
-        mensajeError("Semaforo: semget");
-    }
-  
-	initSem(semaforoColaPartido,1);
-	initSem(semaforoMutex,1);
-  
+  	semaforo_allocation ((key_t)1841, IPC_CREAT | IPC_EXCL | 0666);
+  	semaforo_inicializacion (semaforoBola);
+	semaforo_allocation ((key_t)1877, IPC_CREAT | IPC_EXCL | 0666);
+  	semaforo_inicializacion (semaforoCanchaA);
+	semaforo_allocation ((key_t)1871, IPC_CREAT | IPC_EXCL | 0666);
+  	semaforo_inicializacion (semaforoCanchaB);
+  	
   	printf("Número del Partido # %d \n",getpid());
 	printf("   Lista de Jugadores\n");
 	printf("Equipo Jugador	IDJUgador #Partido	\n");	
-	inicializarPartido(partido);
+	
 	struct Jugador player;
 	pid=fork();
 	//Creamos los jugadores
@@ -207,15 +183,52 @@ int main(int argc, char * argv[]) {
 				partido->b.jug.idP =  jugadores;
 				printf("   %c      %d	 %d	   %d\n",player.equipo,player.idJ,player.idP,player.numPartido);
                	while(true){
-                   	if(partido->running == true){
-                       	//P()
-						sleep(1);
-						acceder(partido,player);
-						acceder(partido,player);
-						acceder(partido,player);
-						sleep(1);
-						exit(0);
-	          			//                   		
+                	if(partido->running == true){
+						sleep(randomNumero(2,3)); //Tiempo de Espera
+						//semaforoBola, semaforoCanchaA, semaforoCanchaB
+                      	//semaforo_wait();
+                      	//semaforo_post();
+						if(partido->b.jug.idP == player.idP){ //Si el proceso tenía la bola
+                        	int aux;
+                          	if((char)partido->b.jug.equipo =='A'){ //Si el jugador es del Equipo A
+								//semaforo_wait(semaforoCanchaB);
+                              	if(partido->B.jug.idP == player.idP){ //Si el jugador tiene la cancha B
+                                  	partido->A.anotaciones++; //anotación para el Equipo A
+                                  	printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
+                                  	printf("Marcador: A(%d) - B(%d)\n",partido->A.anotaciones,partido->B.anotaciones);
+                                  	
+                             	}else{ //Si el jugador NO tiene la cancha B
+                                  	partido->B.jug.idP = player.idP; //Setea en cancha (proceso) al jugador que la NO la tenía
+                                  	aux = partido->B.jug.idJ; //Guarda el que perdío la cancha(numero)		
+                                  	partido->B.jug.idJ =player.idJ; //Setea en cancha (numero) al jugador que la NO la tenía
+                                  	printf("EL jugador %d le quito la Cancha A a %d\n",player.idJ,aux);	
+                             	}
+								//semaforo_post(semaforoCanchaB);
+                          	}else if((char)partido->b.jug.equipo =='B'){ //Si el jugador es del Equipo B
+								//semaforo_wait(semaforoCanchaA);
+                              	if(partido->A.jug.idP == player.idP){ //Si el jugador tiene la cancha A
+                                  	partido->B.anotaciones++; //anotación para el Equipo B
+                                  	printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
+                                  	printf("Marcador: A(%d) - B(%d)\n",partido->A.anotaciones,partido->B.anotaciones);
+                                  	
+                              	}else{  //Si el jugador tiene la cancha B
+                                  	partido->A.jug.idP = player.idP;  //Setea la cancha  al jugador(proceso) que la NO la tenía
+                                  	aux = partido->A.jug.idJ;	//Guarda el que perdío la cancha (numero)	
+                                  	partido->A.jug.idJ =player.idJ; //Setea en cancha al jugador(numero) que la NO la tenía
+                                  	printf("EL jugador %d le quito la Cancha B a %d\n",player.idJ,aux);
+                                  	
+                              	}
+								//semaforo_post(semaforoCanchaA);
+                          	}
+                    	}else{ //Si el proceso NO tenía la bola
+							//semaforo_wait(semaforoBola);
+                        	partido->b.jug.idP = player.idP; // Setea el jugador(proceso) a la bola
+                        	partido->b.jug.equipo = player.equipo; // Setea el jugador(numero) a la hola
+                        	int viejo = partido->b.jug.idJ; //Guarda el que perdío la bola (numero)	
+                        	partido->b.jug.idJ = player.idJ; // Setea el jugador(numero) a la bola	
+                        	printf("EL jugador %d perdió la bola y la obtuvo el jugador %d\n",viejo,player.idJ);
+							//semaforo_post(semaforoBola);
+                    	}							              		
                    	}
            		}	
 			}
@@ -231,8 +244,7 @@ int main(int argc, char * argv[]) {
 		exit(EXIT_FAILURE);
 	}
  	//Liberacion del semaforo
-    if ((semctl(semaforoColaPartido, 0, IPC_RMID)) == -1 && (semctl(semaforoMutex, 0, IPC_RMID)) == -1) {
-        perror(NULL);
-        mensajeError("Semaforo borrando\n");
-    }
+	semaforo_deallocate(semaforoBola);
+	semaforo_deallocate(semaforoCanchaA);
+	semaforo_deallocate(semaforoCanchaB);
 }
