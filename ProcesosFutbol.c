@@ -175,6 +175,7 @@ int main(int argc, char * argv[]) {
 				player.idP = getpid();
 				player.numPartido = getppid();
 				player.idJ = jugadores;
+
 				semaforo_wait(semaforoBola);
 				if(jugadores == 12 || jugadores ==6){
 					printf("   %c      %d	 %d	   %d	(Portero)\n",player.equipo,player.idJ,player.idP,player.numPartido);
@@ -182,28 +183,34 @@ int main(int argc, char * argv[]) {
 					printf("   %c      %d	 %d	   %d	(Jugador)\n",player.equipo,player.idJ,player.idP,player.numPartido);
 				}
 				semaforo_post(semaforoBola);
+
 				sleep(randomNumero(5,20));
-				while(true)
+				while(true) //Ciclo que ejecutan los jugadores durante su vida.
 				{
-					if(partido->running == true)
+					if(partido->running == true) //Avisa a los jugadores cuando se inicio el partido
 					{
-						semaforo_wait(semaforoBola);
-						if(partido->b.jug.idP == player.idP)
+						semaforo_wait(semaforoBola); //Pide el recurso de la bola
+						if(partido->b.jug.idP == player.idP) //Verifica si el jugador tiene control de la bola
 						{
+							//Esta seccion la realizan los jugadores del equipo A
 							if((char)partido->b.jug.equipo == 'A')
 							{
-								semaforo_post(semaforoBola);
+								semaforo_post(semaforoBola); //Libera el recurso de la bola
+								//Tiene control de la bola, Entonces intenta obtener la cancha B
 								int i;
-								for(i=1;i<=3;i++)
+								for(i=1;i<=3;i++) //El jugador tiene 3 oportunidades de obtener la cancha contraria
 								{
-									semaforo_wait(semaforoCanchaB);
-									if(partido->B.jug.idP == player.idP)
+									semaforo_wait(semaforoCanchaB); //Pide el recurso de la cancha
+									if(partido->B.jug.idP == player.idP) //Verifica si el jugador tiene control de la cancha contraria
 									{
+										//En caso de tener control de la cancha B y ya tenia control del balon
+										//Anota y libera la cancha
 										partido->B.jug.idJ = 0;
 										partido->B.jug.idP = 0;
 										partido->B.jug.equipo = 0;
-										semaforo_post(semaforoCanchaB);
+										semaforo_post(semaforoCanchaB); //Devuelve el recurso de la cancha B
 
+										//Anota un gol para el equipo A
 										semaforo_wait(semaforoCanchaA);
 										partido->A.anotaciones++; //anotación para el Equipo A
 										semaforo_post(semaforoCanchaA);						
@@ -213,46 +220,53 @@ int main(int argc, char * argv[]) {
 										sleep(randomNumero(5,20));
 										break;
 									} 									
-									else if(partido->B.jug.idP == 0)//Si la cancha esta vacia 
+									else if(partido->B.jug.idP == 0) //Verifica si nadie tiene la cancha
 									{
+										//En este caso el jugador toma control del recurso
 										partido->B.jug.idJ = player.idJ;
 										partido->B.jug.idP = player.idP;
 										partido->B.jug.equipo = player.equipo;
-										semaforo_post(semaforoCanchaB);
+										semaforo_post(semaforoCanchaB); //Libera el recurso de la cancha B
 										printf("El jugador %d del equipo %c obtuvo la cancha B (Intento %d)\n",player.idJ,player.equipo,i);	
 										i--;									
 										continue;
-									} else 
+									} else //En caso de que la cancha se encuentre ocupada, espera un segundo y realiza otro intento
 									{
 										semaforo_post(semaforoCanchaB);
 										printf("El jugador %d del equipo %c no obtuvo la cancha B. (Intento %d \n", player.idJ, player.equipo, i);
 										sleep(1);
 									}
 								}
-								//libera la bola
-								semaforo_wait(semaforoBola);
+								//Devuelve la bola
+								semaforo_wait(semaforoBola); //Libera el recurso de la bola
 								partido->b.jug.idJ = 0;
 								partido->b.jug.idP = 0;
 								partido->b.jug.equipo = 0;
 								semaforo_post(semaforoBola);
 								sleep(randomNumero(5,20));
 
+							//Esta seccion la realizan los jugadores del equipo B
+
 							}else if((char)partido->b.jug.equipo == 'B')
-							{ 	//jugador de equipo b
-								semaforo_post(semaforoBola);
+							{ 	
+								semaforo_post(semaforoBola); //Libera el recurso de la bola
+								//Tiene control de la bola, Entonces intenta obtener la cancha A
 								int i;
-								for(i=1;i<=3;i++)
+								for(i=1;i<=3;i++) //El jugador tiene 3 oportunidades de obtener la cancha contraria
 								{
 									semaforo_wait(semaforoCanchaA);
-									if(partido->A.jug.idP == player.idP)
+									if(partido->A.jug.idP == player.idP) //Verifica si el jugador tiene control de la cancha contraria
 									{
+										//En caso de tener control de la cancha A y ya tenia control del balon
+										//Anota y libera la cancha
 										partido->A.jug.idJ = 0;
 										partido->A.jug.idP = 0;
 										partido->A.jug.equipo = 0;
-										semaforo_post(semaforoCanchaA);
+										semaforo_post(semaforoCanchaA); 
 
+										//Anota un gol para el equipo B
 										semaforo_wait(semaforoCanchaB);
-										partido->B.anotaciones++; //anotación para el Equipo A
+										partido->B.anotaciones++; //anotación para el Equipo B
 										semaforo_post(semaforoCanchaB);						
 
                                   		printf("Anotación del equipo %c por el jugador %d\n",player.equipo,player.idJ);
@@ -262,17 +276,18 @@ int main(int argc, char * argv[]) {
 									} 
 									else 
 									{
-										if(partido->A.jug.idP == 0)//Si la cancha esta vacia
+										if(partido->A.jug.idP == 0) //Verifica si nadie tiene la cancha
 										{
+											//En este caso el jugador toma control del recurso
 											partido->A.jug.idJ = player.idJ;
 											partido->A.jug.idP = player.idP;
 											partido->A.jug.equipo = player.equipo;
-											semaforo_post(semaforoCanchaA);
+											semaforo_post(semaforoCanchaA); //Libera el recurso de la cancha B
 											printf("El jugador %d del equipo %c obtuvo la cancha A (Intento %d)\n",player.idJ,player.equipo,i);	
 											i--;									
 											continue;
 										}
-										else 
+										else //En caso de que la cancha se encuentre ocupada, espera un segundo y realiza otro intento
 										{
 											semaforo_post(semaforoCanchaA);
 											printf("El jugador %d del equipo %c no obtuvo la cancha A. (Intento %d)\n",player.idJ,player.equipo,i);
@@ -280,7 +295,7 @@ int main(int argc, char * argv[]) {
 										}
 									}
 								}
-								//libera la bola
+								//Luego de anotar o perder los 3 intentos de anotar, el jugador libera la bola
 								partido->b.jug.idJ = 0;
 								partido->b.jug.idP = 0;
 								partido->b.jug.equipo = 0;
@@ -288,46 +303,50 @@ int main(int argc, char * argv[]) {
 								sleep(randomNumero(5,20));
 							}
 
-						}else if(player.idJ == 6)
+						}else if(player.idJ == 6) //Esta seccion es la realiza el portero del equipo A
 						{
-							semaforo_post(semaforoBola);							
-							semaforo_wait(semaforoCanchaA);
-							if( partido->A.jug.idJ == 0 )
+							semaforo_post(semaforoBola); //Libera la bola							
+							semaforo_wait(semaforoCanchaA); //Pide la cancha A
+							if( partido->A.jug.idJ == 0 ) //Verifica si nadie tiene el recurso
 							{
+								//En este caso el portero toma el recurso
 								partido->A.jug.idJ = player.idJ;
 								partido->A.jug.idP = player.idP;
 								partido->A.jug.equipo = player.equipo;
-								semaforo_post(semaforoCanchaA);
+								semaforo_post(semaforoCanchaA); //Libera la cancha A
 								printf("EL portero %d obtuvo la cancha A\n",player.idJ);
-								sleep(3);
+								sleep(3); //Espera 3 segundos manteniendo la cancha
 								semaforo_wait(semaforoCanchaA);	
+								//Libera la cancha
 								partido->A.jug.idJ = 0;
 								partido->A.jug.idP = 0;
-								partido->A.jug.equipo = 0;
+								partido->A.jug.equipo = 0; 
 								printf("EL portero %d soltó la cancha A\n",player.idJ);
 							}
 							semaforo_post(semaforoCanchaA);
-							sleep(randomNumero(5,20));
+							sleep(randomNumero(5,20)); //Vuelve a esperar antes de intentar tomar la cancha
 							
-						} else if(player.idJ == 12)
+						} else if(player.idJ == 12) //Esta seccion es la realiza el portero del equipo B
 
-						{	semaforo_post(semaforoBola);
-							semaforo_wait(semaforoCanchaB);
-							if( partido->B.jug.idJ == 0 )
-							{
-								partido->B.jug.idJ = player.idJ;
+						{	semaforo_post(semaforoBola); //Libera la bola
+							semaforo_wait(semaforoCanchaB); //Pide la cancha B
+							if( partido->B.jug.idJ == 0 ) //Verifica si nadie tiene el recurso
+							{	
+								//En este caso el portero toma el recurso
+								partido->B.jug.idJ = player.idJ; 
 								partido->B.jug.idP = player.idP;
 								partido->B.jug.equipo = player.equipo;
-								semaforo_post(semaforoCanchaB);
+								semaforo_post(semaforoCanchaB); //Libera la cancha B
 								printf("EL portero %d obtuvo la cancha B\n",player.idJ);
-								sleep(3);
+								sleep(3); //Espera 3 segundos manteniendo la cancha
 								semaforo_wait(semaforoCanchaB);
+								//Libera la cancha
 								partido->B.jug.idJ = 0;
 								partido->B.jug.idP = 0;
 								partido->B.jug.equipo = 0;
 								printf("EL portero %d soltó la cancha B\n",player.idJ);
 							}
-							semaforo_post(semaforoCanchaB);
+							semaforo_post(semaforoCanchaB); //Libera la cancha B
 							sleep(randomNumero(5,20));
 						}
 						else if(partido->b.jug.idP == 0)
@@ -335,9 +354,10 @@ int main(int argc, char * argv[]) {
 							semaforo_post(semaforoBola);
 
 							semaforo_wait(semaforoBola);
-                        	partido->b.jug.idP = player.idP; // Setea el jugador(proceso) a la bola
-                        	partido->b.jug.equipo = player.equipo; // Setea el jugador(numero) a la hola
-                        	partido->b.jug.idJ = player.idJ; // Setea el jugador(numero) a la bola	
+							//Toma el recurso
+                        	partido->b.jug.idP = player.idP; 
+                        	partido->b.jug.equipo = player.equipo; 
+                        	partido->b.jug.idJ = player.idJ; 	
                         	semaforo_post(semaforoBola);
 							printf("EL jugador %d obtuvo la bola\n",player.idJ);
 							sleep(1);
